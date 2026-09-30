@@ -1,0 +1,19 @@
+services:
+  freq-scheduler:
+    build: .
+    image: theater-freq-scheduler:latest
+    container_name: theater-freq-scheduler
+    ports:
+      # 左侧宿主机端口可用环境变量 HOST_PORT 覆盖，容器内固定 8000
+      - "${HOST_PORT:-8000}:8000"
+    environment:
+      FREQ_DB_PATH: /data/freq.db
+      # 首次启动且数据库为空时是否写入演示数据：1 是 / 0 否
+      SEED_DEMO: "1"
+      GUNICORN_WORKERS: "2"
+    volumes:
+      - freq-data:/data
+    restart: unless-stopped
+
+volumes:
+  freq-data:

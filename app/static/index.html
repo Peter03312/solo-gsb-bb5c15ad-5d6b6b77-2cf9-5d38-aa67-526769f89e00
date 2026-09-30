@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>剧场无线话筒频点排演</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🎙️</span>
+    <div>
+      <h1>剧场无线话筒频点排演</h1>
+      <p class="sub">同房间 / 互扰房间且时段重叠时，频点差不小于双方保护间隔的较大值；锁定频点优先保留</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button id="btn-solve" class="primary big">⚡ 开始编排</button>
+    <button id="btn-reset" class="ghost" title="清空并重新载入演示数据">重置演示数据</button>
+  </div>
+</header>
+
+<main>
+  <div id="error-banner" class="banner error hidden"></div>
+  <div id="expire-banner" class="banner warn hidden"></div>
+  <div id="info-banner" class="banner info hidden"></div>
+
+  <div class="layout">
+    <!-- 左：输入区 -->
+    <section class="col inputs">
+      <div class="card">
+        <div class="card-h">
+          <h2>① 房间</h2>
+          <button class="mini" data-open="room-modal">＋ 新增房间</button>
+        </div>
+        <div id="room-list" class="chip-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <h2>② 房间互扰关系</h2>
+          <button class="mini" data-open="inter-modal">＋ 新增互扰</button>
+        </div>
+        <p class="hint">存在互扰的两个房间，话筒时段重叠时也需满足频点间隔（同房间始终互扰）。</p>
+        <div id="inter-list" class="pair-list"></div>
+      </div>
+
+      <div class="card grow">
+        <div class="card-h">
+          <h2>③ 话筒</h2>
+          <button class="mini primary" data-open="mic-modal">＋ 新增话筒</button>
+        </div>
+        <p class="hint">时段为整数（建议分钟数，半开区间 [开始, 结束)）；频点与保护间隔均为整数 kHz。</p>
+        <div class="table-wrap">
+          <table id="mic-table">
+            <thead>
+              <tr>
+                <th>名称</th><th>房间</th><th>优先级</th>
+                <th>时段[起,止)</th><th>保护(kHz)</th>
+                <th>可用频点(kHz)</th><th>锁定</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右：结果区 -->
+    <section class="col results">
+      <div class="card summary-card">
+        <h2>编排结果</h2>
+        <div id="summary" class="summary-grid"></div>
+        <div class="legend">
+          <span><i class="dot high"></i>高优先级</span>
+          <span><i class="dot normal"></i>普通</span>
+          <span><i class="dot locked"></i>锁定保留</span>
+          <span><i class="dot none"></i>未获配</span>
+        </div>
+      </div>
+
+      <div class="card grow">
+        <div class="card-h">
+          <h2>获配设备</h2>
+          <span id="assigned-count" class="badge"></span>
+        </div>
+        <div class="table-wrap">
+          <table id="assigned-table">
+            <thead>
+              <tr><th>话筒</th><th>房间</th><th>优先级</th><th>时段</th>
+              <th>分配频点(kHz)</th><th>保护(kHz)</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <h2>未获配设备</h2>
+          <span id="unassigned-count" class="badge warn"></span>
+        </div>
+        <div id="unassigned-list" class="unassigned"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h">
+          <h2>历史方案</h2>
+          <button id="btn-toggle-history" class="mini ghost">展开</button>
+        </div>
+        <div id="history-list" class="history hidden"></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- 房间弹窗 -->
+<dialog id="room-modal">
+  <form method="dialog" class="modal">
+    <h3 id="room-modal-title">新增房间</h3>
+    <label>房间名称 <input type="text" id="room-name" required maxlength="40"></label>
+    <div class="modal-actions">
+      <button value="cancel" class="ghost">取消</button>
+      <button id="room-save" value="default" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 互扰弹窗 -->
+<dialog id="inter-modal">
+  <form method="dialog" class="modal">
+    <h3>新增房间互扰关系</h3>
+    <label>房间 A <select id="inter-a"></select></label>
+    <label>房间 B <select id="inter-b"></select></label>
+    <div class="modal-actions">
+      <button value="cancel" class="ghost">取消</button>
+      <button id="inter-save" value="default" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 话筒弹窗 -->
+<dialog id="mic-modal">
+  <form method="dialog" class="modal wide">
+    <h3 id="mic-modal-title">新增话筒</h3>
+    <div class="form-grid">
+      <label>名称 <input type="text" id="m-name" required maxlength="40"></label>
+      <label>所属房间 <select id="m-room"></select></label>
+      <label>优先级
+        <select id="m-priority">
+          <option value="high">高</option>
+          <option value="normal" selected>普通</option>
+        </select>
+      </label>
+      <label>保护间隔 (kHz) <input type="number" id="m-guard" min="0" step="1" value="200" required></label>
+      <label>启用开始 (整数) <input type="number" id="m-start" step="1" value="1080" required></label>
+      <label>启用结束 (整数) <input type="number" id="m-end" step="1" value="1320" required></label>
+    </div>
+    <label class="block">可用频点，整数 kHz，用逗号/空格分隔
+      <input type="text" id="m-freqs" value="600000, 602000, 604000, 606000" required>
+    </label>
+    <label class="block">锁定频点（可选，留空表示不锁定；必须是上面列出的频点之一）
+      <input type="text" id="m-locked" placeholder="如 600000">
+    </label>
+    <div class="modal-actions">
+      <button value="cancel" class="ghost">取消</button>
+      <button id="mic-save" value="default" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
